@@ -11,6 +11,7 @@ My CTF writeups. These are my own notes on how I approached and solved each chal
 | Misc | Very Fest | [misc/very-fest](misc/very-fest) |
 | Pwn | SpeedRun | [pwn/SpeedRun](pwn/SpeedRun) |
 | Pwn | gossip | [pwn/gossip](pwn/gossip) |
+| Pwn      | Playlist      | [pwn/Playlist](pwn/Playlist)       |
 
 ## Layout
 
@@ -29,6 +30,9 @@ ctf-writeups/
 └─ pwn/
    ├─ SpeedRun/
    │  └─ README.md
-   └─ gossip/
+   ├─ gossip/
+   │  └─ README.md
+   └─ Playlist/
       └─ README.md
+
       
