@@ -9,6 +9,7 @@ My CTF writeups. These are my own notes on how I approached and solved each chal
 | Web | 3NC0R3 | [web/3NC0R3](web/3NC0R3/README.md) |
 | Misc | pls-dont-be-cold | [misc/pls-dont-be-cold](misc/pls-dont-be-cold/README.md) |
 | Pwn | SpeedRun | [pwn/SpeedRun](pwn/SpeedRun) |
+| Pwn | gossip | [pwn/gossip](pwn/gossip) |
 
 ## Layout
 
