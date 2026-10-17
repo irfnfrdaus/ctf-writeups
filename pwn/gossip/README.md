@@ -2,7 +2,6 @@
 
 Category: Pwn   Solves: 20   Author: Hann   Flag: `nexsec26{328869a59fefd03c2d07280114bc0f65d25ffbcd1615c94a84b52799421efa5a}`   Tools I used: Python (pwntools), Ghidra + capstone for the disassembly, ROPgadget, and DeepSeek for analysis/guidance ([chat](https://chat.deepseek.com/share/sa48sim9w39aspngp8)).
 
-![challenge card](./challenge.png)
 
 > Gosip's little sibling rolled into town instead. it listens to *everything*: your name, your secrets, even your last words.
 >
