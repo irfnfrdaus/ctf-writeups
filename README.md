@@ -24,5 +24,8 @@ ctf-writeups/
 │  └─ pls-dont-be-cold/
 │     └─ README.md
 └─ pwn/
-   └─ SpeedRun/
+   ├─ SpeedRun/
+   │  └─ README.md
+   └─ gossip/
       └─ README.md
+      
