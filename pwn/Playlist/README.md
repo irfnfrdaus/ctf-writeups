@@ -1,6 +1,6 @@
 # Playlist
 
-Category: Pwn  Points: 469  Flag: `nexsec26{integer_overflow_to_ret_2_l1b_goes_brrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr_0c687b07a1429c265813877b480132ae1bae3bcc31b9b77027f1d68276e77687}`  Tools I used: pwntools, objdump, checksec, ROPgadget, gdb, and DeepSeek for analysis/guidance.
+Category: Pwn  Points: 469  Flag: `nexsec26{integer_overflow_to_ret_2_l1b_goes_brrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr_0c687b07a1429c265813877b480132ae1bae3bcc31b9b77027f1d68276e77687}`  Tools I used: pwntools, objdump, checksec, ROPgadget, gdb, and DeepSeekL: https://chat.deepseek.com/share/j1e2rw7cur3v63gniz
 
 > playlist
 > lylera_
