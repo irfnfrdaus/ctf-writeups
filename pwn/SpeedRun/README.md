@@ -3,7 +3,7 @@
 **Category:** Pwn
 **Points:** 493
 **Flag:** `nexsec26{Good___morning___or___perhaps___good___evening___everyone!!!}`
-**Tools I used:** nasm, Python (pwn-style socket scripting), webhook.site, and DeepSeek for analysis/guidance.
+**Tools I used:** nasm, Python (pwn-style socket scripting), webhook.site, and DeepSeek: https://chat.deepseek.com/share/qfu9tvnq5jlzshhcax
 
 > Please speedrun this chall.
 
