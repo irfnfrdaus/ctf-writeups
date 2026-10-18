@@ -2,7 +2,7 @@
 
 **Category:** Misc
 **Flag:** `nexsec26{decentralization_means_giving_up_dominance_over_security}`
-**Solved with DeepSeek** — chat pasted below in full.
+**Solved with DeepSeek**: https://chat.deepseek.com/share/bt6l5s8vihwm91xc9o
 
 ## TL;DR
 
