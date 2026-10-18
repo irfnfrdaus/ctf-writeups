@@ -3,7 +3,7 @@
 - **Category:** Web
 - **Author:** ahrixia
 - **Flag:** `nexsec26{th3_0nly_0n3_wh0_c0uld_h4ck_m3_337b5dd163a4c4a1427a2b7178303264742a831b8e8935e98ea5b9c2033aeddf}`
-- **Tools I used:** Browser DevTools, `curl`, PowerShell, and DeepSeek for analysis/guidance.
+- **Tools I used:** Browser DevTools, `curl`, PowerShell, and DeepSeek: https://chat.deepseek.com/share/qjugaqpe3f5q39g8xy
 
 > ENCORE is a late-90s concert "shoebox" that went dark in 2009 and got plugged back in for the nostalgia. Fans pin ticket stubs and a few lines about the night. The founder's shoebox is still locked. He never rotated the passphrase, because the only thing that could break in is the memory itself.
 >
